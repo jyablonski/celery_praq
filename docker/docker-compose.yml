@@ -1,0 +1,53 @@
+version: "3.7"
+services:
+  redis:
+    image: redis:7.4-alpine
+    restart: always
+    ports:
+      - "6379:6379"
+    command: redis-server
+    container_name: redis
+    networks:
+      - celery_network
+
+  celery-producer:
+    build:
+      context: ../
+      dockerfile: celery_producer/Dockerfile
+    image: celery_producer:latest
+    container_name: celery-producer
+    restart: on-failure
+    volumes:
+      - ${PWD}/celery_producer/app.py:/home/appuser/app.py
+    networks:
+      - celery_network
+
+  celery-consumer:
+    build:
+      context: ../
+      dockerfile: celery_consumer/Dockerfile
+    image: celery_consumer:latest
+    container_name: celery-consumer
+    depends_on:
+      - celery-producer
+    restart: on-failure
+    volumes:
+      - ${PWD}/celery_consumer/app.py:/home/appuser/app.py
+    networks:
+      - celery_network
+
+  celery-beat:
+    build:
+      context: ../
+      dockerfile: celery_producer/Dockerfile
+    image: celery_producer:latest
+    container_name: celery-beat
+    restart: on-failure
+    volumes:
+      - ${PWD}/celery_producer/app.py:/home/appuser/app.py
+    networks:
+      - celery_network
+    command: celery -A app beat --loglevel=info
+
+networks:
+  celery_network:
